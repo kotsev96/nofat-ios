@@ -106,7 +106,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     }
                     style={styles.authButton}
                   />
-                  
+
                   <Button
                     title="Continue with Apple"
                     onPress={() => handleContinue('apple')}
@@ -121,7 +121,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     }
                     style={styles.authButton}
                   />
-                  
+
                   <Button
                     title="Continue with Facebook"
                     onPress={() => handleContinue('facebook')}
@@ -155,7 +155,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     }
                     style={styles.authButton}
                   />
-                  
+
                   <Button
                     title="Continue with Apple"
                     onPress={() => handleContinue('apple')}
@@ -170,7 +170,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                     }
                     style={styles.authButton}
                   />
-                  
+
                   <Button
                     title="Continue with Facebook"
                     onPress={() => handleContinue('facebook')}
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     backdropFilter: 'blur(20px)',
     WebkitBackdropFilter: 'blur(20px)',
-  },
+  } as any,
   buttonsWrapper: {
     width: '100%',
     gap: theme.spacing.md,
