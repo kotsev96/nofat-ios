@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "No Fat Community",
+    "slug": "nofat-community",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F2F2F2"
+    },
+    "sdkVersion": "54.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nofatcommunity.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Мы используем камеру для сканирования еды и расчета калорий",
+        "NSPhotoLibraryUsageDescription": "Мы используем доступ к фото для выбора изображения еды и расчета калорий"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F2F2F2"
+      },
+      "package": "com.nofatcommunity.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
+
