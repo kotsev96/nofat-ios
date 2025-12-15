@@ -15,6 +15,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/Card';
 import { theme } from '../theme';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   navigation,
 }) => {
+  const { signOut } = useAuth();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -64,13 +66,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     for (let i = 29; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      
+
       // Simulate gradual weight loss with some variation
       const progress = (29 - i) / 29;
       const trendWeight = startWeight - (startWeight - endWeight) * progress;
       const variation = (Math.sin(i * 0.5) * 0.8 + Math.cos(i * 0.3) * 0.5); // Natural variation
       const weight = trendWeight + variation;
-      
+
       data.push({ date, weight: Math.max(endWeight - 2, Math.min(startWeight + 2, weight)) });
     }
     return data;
@@ -80,19 +82,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const chartHeight = 200;
   const chartPadding = 20; // Vertical padding for top and bottom
   const gridPadding = theme.spacing.sm; // Padding for grid lines on left and right sides
-  
+
   // Calculate correct width to fit inside card with paddings
   // Screen padding (lg) + Card padding (lg) = 2 * lg per side = 4 * lg total
   const totalHorizontalPadding = theme.spacing.lg * 4;
   const chartWidth = SCREEN_WIDTH - totalHorizontalPadding;
-  
+
   // Make y-axis labels more compact and shift graph left for better symmetry
   const yAxisWidth = 35;
   const rightPadding = 35; // Equal padding on right for symmetry
-  
+
   // Width of the actual chart area (between Y-axis and right padding)
   const graphWidth = chartWidth - yAxisWidth - rightPadding;
-  
+
   const weights = weightData.map(d => d.weight);
   const minWeight = Math.min(...weights);
   const maxWeight = Math.max(...weights);
@@ -106,11 +108,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     // So available width for line is graphWidth - 2 * gridPadding
     const availableWidth = graphWidth - gridPadding * 2;
     const x = gridPadding + (index / (weightData.length - 1)) * availableWidth;
-    
+
     // Y coordinate: normalize weight to 0-1, then map to chartAreaHeight (inverted)
     const normalizedWeight = (data.weight - minWeight) / weightRange;
     const y = chartPadding + (1 - normalizedWeight) * chartAreaHeight;
-    
+
     return { x, y, weight: data.weight };
   });
 
@@ -143,170 +145,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {/* Weight Chart Card */}
             {Platform.OS === 'web' ? (
               <View style={[styles.chartCard, styles.chartCardWeb]}>
-              <Text style={styles.sectionTitle}>Weight Change (Last 30 Days)</Text>
-              
-              {/* Chart */}
-              <View style={styles.chartContainer}>
-                <View style={[styles.chart, { height: chartHeight, width: chartWidth }]}>
-                  {/* Y-axis labels */}
-                  <View style={styles.yAxisLabels}>
-                    <Text style={styles.yAxisLabel}>{maxWeight.toFixed(1)}</Text>
-                    <Text style={styles.yAxisLabel}>{minWeight.toFixed(1)}</Text>
-                  </View>
-                  
-                  {/* Chart area */}
-                  <View style={[styles.chartArea, { marginRight: rightPadding }]}>
-                    {/* Grid lines - horizontal */}
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <View
-                        key={`grid-${i}`}
-                        style={[
-                          styles.gridLine,
-                          {
-                            top: (chartHeight - chartPadding * 2) * (i / 4) + chartPadding,
-                          },
-                        ]}
-                      />
-                    ))}
-                    
-                    {/* Area fill under line - like in the image */}
-                    <View style={styles.areaFill}>
-                      {points.map((point, index) => {
-                        if (index === 0) return null;
-                        const prevPoint = points[index - 1];
-                        const bottomY = chartHeight - chartPadding;
-                        const minY = Math.min(prevPoint.y, point.y);
-                        
-                        return (
-                          <LinearGradient
-                            key={`fill-${index}`}
-                            colors={[
-                              theme.colors.primary + '25',
-                              theme.colors.primary + '15',
-                              'transparent',
-                            ]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 0, y: 1 }}
-                            style={[
-                              styles.fillSegment,
-                              {
-                                left: prevPoint.x,
-                                top: minY,
-                                width: point.x - prevPoint.x,
-                                height: bottomY - minY,
-                              },
-                            ]}
-                          />
-                        );
-                      })}
-                    </View>
-                    
-                    {/* Main line - smooth and simple */}
-                    <View style={styles.chartLine}>
-                      {points.map((point, index) => {
-                        if (index === 0) return null;
-                        const prevPoint = points[index - 1];
-                        const dx = point.x - prevPoint.x;
-                        const dy = point.y - prevPoint.y;
-                        const length = Math.sqrt(dx * dx + dy * dy);
-                        const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-                        
-                        return (
-                          <View
-                            key={`line-${index}`}
-                            style={[
-                              styles.lineSegment,
-                              {
-                                left: prevPoint.x,
-                                top: prevPoint.y - 2,
-                                width: length,
-                                height: 3,
-                                transform: [{ rotate: `${angle}deg` }],
-                              },
-                            ]}
-                          />
-                        );
-                      })}
-                    </View>
-                    
-                    {/* Single marker point - like in the image */}
-                    {points.map((point, index) => {
-                      // Show only the last point (current weight) as a white marker
-                      if (index !== points.length - 1) return null;
-                      
-                      return (
-                        <View
-                          key={`marker-${index}`}
-                          style={[
-                            styles.markerPoint,
-                            {
-                              left: point.x - 6,
-                              top: point.y - 6,
-                            },
-                          ]}
-                        />
-                      );
-                    })}
-                  </View>
-                </View>
-                
-                {/* X-axis labels */}
-                <View style={[styles.xAxisLabels, { marginRight: rightPadding, paddingHorizontal: gridPadding }]}>
-                  <Text style={styles.xAxisLabel}>
-                    {weightData[0].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </Text>
-                  <Text style={styles.xAxisLabel}>
-                    {weightData[Math.floor(weightData.length / 2)].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </Text>
-                  <Text style={styles.xAxisLabel}>
-                    {weightData[weightData.length - 1].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </Text>
-                </View>
-              </View>
-              
-              {/* Summary stats */}
-              <View style={styles.summaryStats}>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Current</Text>
-                  <Text style={styles.summaryValue}>{userData.currentWeight.toFixed(1)} lbs</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Change</Text>
-                  <Text style={[styles.summaryValue, styles.summaryChange]}>
-                    {(weightData[weightData.length - 1].weight - weightData[0].weight < 0 ? '-' : '+')}
-                    {Math.abs(weightData[weightData.length - 1].weight - weightData[0].weight).toFixed(1)} lbs
-                  </Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Goal</Text>
-                  <Text style={styles.summaryValue}>{userData.goalWeight.toFixed(1)} lbs</Text>
-                </View>
-              </View>
-
-            <TouchableOpacity
-              style={styles.updateWeightButton}
-              onPress={() => navigation.navigate('UpdateWeight')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="scale-outline" size={20} color={theme.colors.primary} />
-              <Text style={styles.updateWeightButtonText}>Update Weight</Text>
-              <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.leaderboardButton}
-              onPress={() => navigation.navigate('Leaderboard')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trophy-outline" size={20} color={theme.colors.primary} />
-              <Text style={styles.leaderboardButtonText}>View Leaderboard</Text>
-              <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-              </View>
-            ) : (
-              <BlurView intensity={80} tint="light" style={styles.chartCard}>
                 <Text style={styles.sectionTitle}>Weight Change (Last 30 Days)</Text>
-                
+
                 {/* Chart */}
                 <View style={styles.chartContainer}>
                   <View style={[styles.chart, { height: chartHeight, width: chartWidth }]}>
@@ -315,7 +155,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       <Text style={styles.yAxisLabel}>{maxWeight.toFixed(1)}</Text>
                       <Text style={styles.yAxisLabel}>{minWeight.toFixed(1)}</Text>
                     </View>
-                    
+
                     {/* Chart area */}
                     <View style={[styles.chartArea, { marginRight: rightPadding }]}>
                       {/* Grid lines - horizontal */}
@@ -330,7 +170,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           ]}
                         />
                       ))}
-                      
+
                       {/* Area fill under line - like in the image */}
                       <View style={styles.areaFill}>
                         {points.map((point, index) => {
@@ -338,7 +178,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           const prevPoint = points[index - 1];
                           const bottomY = chartHeight - chartPadding;
                           const minY = Math.min(prevPoint.y, point.y);
-                          
+
                           return (
                             <LinearGradient
                               key={`fill-${index}`}
@@ -362,7 +202,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           );
                         })}
                       </View>
-                      
+
                       {/* Main line - smooth and simple */}
                       <View style={styles.chartLine}>
                         {points.map((point, index) => {
@@ -372,7 +212,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           const dy = point.y - prevPoint.y;
                           const length = Math.sqrt(dx * dx + dy * dy);
                           const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-                          
+
                           return (
                             <View
                               key={`line-${index}`}
@@ -390,12 +230,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           );
                         })}
                       </View>
-                      
+
                       {/* Single marker point - like in the image */}
                       {points.map((point, index) => {
                         // Show only the last point (current weight) as a white marker
                         if (index !== points.length - 1) return null;
-                        
+
                         return (
                           <View
                             key={`marker-${index}`}
@@ -411,7 +251,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       })}
                     </View>
                   </View>
-                  
+
                   {/* X-axis labels */}
                   <View style={[styles.xAxisLabels, { marginRight: rightPadding, paddingHorizontal: gridPadding }]}>
                     <Text style={styles.xAxisLabel}>
@@ -425,7 +265,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     </Text>
                   </View>
                 </View>
-                
+
                 {/* Summary stats */}
                 <View style={styles.summaryStats}>
                   <View style={styles.summaryItem}>
@@ -445,25 +285,205 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   </View>
                 </View>
 
-              <TouchableOpacity
-                style={styles.updateWeightButton}
-                onPress={() => navigation.navigate('UpdateWeight')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="scale-outline" size={20} color={theme.colors.primary} />
-                <Text style={styles.updateWeightButtonText}>Update Weight</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.updateWeightButton}
+                  onPress={() => navigation.navigate('UpdateWeight')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="scale-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.updateWeightButtonText}>Update Weight</Text>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.leaderboardButton}
-                onPress={() => navigation.navigate('Leaderboard')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trophy-outline" size={20} color={theme.colors.primary} />
-                <Text style={styles.leaderboardButtonText}>View Leaderboard</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.leaderboardButton}
+                  onPress={() => navigation.navigate('Leaderboard')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trophy-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.leaderboardButtonText}>View Leaderboard</Text>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.signOutButton}
+                  onPress={signOut}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+                  <Text style={styles.signOutButtonText}>Sign Out</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <BlurView intensity={80} tint="light" style={styles.chartCard}>
+                <Text style={styles.sectionTitle}>Weight Change (Last 30 Days)</Text>
+
+                {/* Chart */}
+                <View style={styles.chartContainer}>
+                  <View style={[styles.chart, { height: chartHeight, width: chartWidth }]}>
+                    {/* Y-axis labels */}
+                    <View style={styles.yAxisLabels}>
+                      <Text style={styles.yAxisLabel}>{maxWeight.toFixed(1)}</Text>
+                      <Text style={styles.yAxisLabel}>{minWeight.toFixed(1)}</Text>
+                    </View>
+
+                    {/* Chart area */}
+                    <View style={[styles.chartArea, { marginRight: rightPadding }]}>
+                      {/* Grid lines - horizontal */}
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <View
+                          key={`grid-${i}`}
+                          style={[
+                            styles.gridLine,
+                            {
+                              top: (chartHeight - chartPadding * 2) * (i / 4) + chartPadding,
+                            },
+                          ]}
+                        />
+                      ))}
+
+                      {/* Area fill under line - like in the image */}
+                      <View style={styles.areaFill}>
+                        {points.map((point, index) => {
+                          if (index === 0) return null;
+                          const prevPoint = points[index - 1];
+                          const bottomY = chartHeight - chartPadding;
+                          const minY = Math.min(prevPoint.y, point.y);
+
+                          return (
+                            <LinearGradient
+                              key={`fill-${index}`}
+                              colors={[
+                                theme.colors.primary + '25',
+                                theme.colors.primary + '15',
+                                'transparent',
+                              ]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 0, y: 1 }}
+                              style={[
+                                styles.fillSegment,
+                                {
+                                  left: prevPoint.x,
+                                  top: minY,
+                                  width: point.x - prevPoint.x,
+                                  height: bottomY - minY,
+                                },
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
+
+                      {/* Main line - smooth and simple */}
+                      <View style={styles.chartLine}>
+                        {points.map((point, index) => {
+                          if (index === 0) return null;
+                          const prevPoint = points[index - 1];
+                          const dx = point.x - prevPoint.x;
+                          const dy = point.y - prevPoint.y;
+                          const length = Math.sqrt(dx * dx + dy * dy);
+                          const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+                          return (
+                            <View
+                              key={`line-${index}`}
+                              style={[
+                                styles.lineSegment,
+                                {
+                                  left: prevPoint.x,
+                                  top: prevPoint.y - 2,
+                                  width: length,
+                                  height: 3,
+                                  transform: [{ rotate: `${angle}deg` }],
+                                },
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
+
+                      {/* Single marker point - like in the image */}
+                      {points.map((point, index) => {
+                        // Show only the last point (current weight) as a white marker
+                        if (index !== points.length - 1) return null;
+
+                        return (
+                          <View
+                            key={`marker-${index}`}
+                            style={[
+                              styles.markerPoint,
+                              {
+                                left: point.x - 6,
+                                top: point.y - 6,
+                              },
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* X-axis labels */}
+                  <View style={[styles.xAxisLabels, { marginRight: rightPadding, paddingHorizontal: gridPadding }]}>
+                    <Text style={styles.xAxisLabel}>
+                      {weightData[0].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                    <Text style={styles.xAxisLabel}>
+                      {weightData[Math.floor(weightData.length / 2)].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                    <Text style={styles.xAxisLabel}>
+                      {weightData[weightData.length - 1].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Summary stats */}
+                <View style={styles.summaryStats}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>Current</Text>
+                    <Text style={styles.summaryValue}>{userData.currentWeight.toFixed(1)} lbs</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>Change</Text>
+                    <Text style={[styles.summaryValue, styles.summaryChange]}>
+                      {(weightData[weightData.length - 1].weight - weightData[0].weight < 0 ? '-' : '+')}
+                      {Math.abs(weightData[weightData.length - 1].weight - weightData[0].weight).toFixed(1)} lbs
+                    </Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>Goal</Text>
+                    <Text style={styles.summaryValue}>{userData.goalWeight.toFixed(1)} lbs</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.updateWeightButton}
+                  onPress={() => navigation.navigate('UpdateWeight')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="scale-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.updateWeightButtonText}>Update Weight</Text>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.leaderboardButton}
+                  onPress={() => navigation.navigate('Leaderboard')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trophy-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.leaderboardButtonText}>View Leaderboard</Text>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.signOutButton}
+                  onPress={signOut}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+                  <Text style={styles.signOutButtonText}>Sign Out</Text>
+                </TouchableOpacity>
               </BlurView>
             )}
 
@@ -471,7 +491,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {Platform.OS === 'web' ? (
               <View style={[styles.detailsCard, styles.detailsCardWeb]}>
                 <Text style={styles.sectionTitle}>Profile Details</Text>
-                
+
                 <View style={styles.detailRow}>
                   <Ionicons name="person-outline" size={20} color={theme.colors.textSecondary} />
                   <Text style={styles.detailLabel}>Gender</Text>
@@ -502,35 +522,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </View>
             ) : (
               <BlurView intensity={80} tint="light" style={styles.detailsCard}>
-              <Text style={styles.sectionTitle}>Profile Details</Text>
-              
-              <View style={styles.detailRow}>
-                <Ionicons name="person-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={styles.detailLabel}>Gender</Text>
-                <Text style={styles.detailValue}>
-                  {userData.gender === 'male' ? 'Male' : 'Female'}
-                </Text>
-              </View>
+                <Text style={styles.sectionTitle}>Profile Details</Text>
 
-              <View style={styles.detailRow}>
-                <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={styles.detailLabel}>Age</Text>
-                <Text style={styles.detailValue}>{userData.age} years</Text>
-              </View>
+                <View style={styles.detailRow}>
+                  <Ionicons name="person-outline" size={20} color={theme.colors.textSecondary} />
+                  <Text style={styles.detailLabel}>Gender</Text>
+                  <Text style={styles.detailValue}>
+                    {userData.gender === 'male' ? 'Male' : 'Female'}
+                  </Text>
+                </View>
 
-              <View style={styles.detailRow}>
-                <Ionicons name="resize-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={styles.detailLabel}>Height</Text>
-                <Text style={styles.detailValue}>
-                  {Math.floor(userData.height / 12)}'{userData.height % 12}
-                </Text>
-              </View>
+                <View style={styles.detailRow}>
+                  <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+                  <Text style={styles.detailLabel}>Age</Text>
+                  <Text style={styles.detailValue}>{userData.age} years</Text>
+                </View>
 
-              <View style={styles.detailRow}>
-                <Ionicons name="flag-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={styles.detailLabel}>Goal Weight</Text>
-                <Text style={styles.detailValue}>{userData.goalWeight.toFixed(1)} lbs</Text>
-              </View>
+                <View style={styles.detailRow}>
+                  <Ionicons name="resize-outline" size={20} color={theme.colors.textSecondary} />
+                  <Text style={styles.detailLabel}>Height</Text>
+                  <Text style={styles.detailValue}>
+                    {Math.floor(userData.height / 12)}'{userData.height % 12}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Ionicons name="flag-outline" size={20} color={theme.colors.textSecondary} />
+                  <Text style={styles.detailLabel}>Goal Weight</Text>
+                  <Text style={styles.detailValue}>{userData.goalWeight.toFixed(1)} lbs</Text>
+                </View>
               </BlurView>
             )}
           </Animated.View>
@@ -584,8 +604,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
     paddingVertical: theme.spacing.lg,
     paddingHorizontal: theme.spacing.lg,
-    backgroundColor: Platform.OS === 'web' 
-      ? 'rgba(255, 255, 255, 0.65)' 
+    backgroundColor: Platform.OS === 'web'
+      ? 'rgba(255, 255, 255, 0.65)'
       : 'rgba(255, 255, 255, 0.5)',
     borderRadius: theme.borderRadius.lg,
     borderWidth: 0.5,
@@ -728,8 +748,8 @@ const styles = StyleSheet.create({
   detailsCard: {
     paddingVertical: theme.spacing.lg,
     paddingHorizontal: theme.spacing.lg,
-    backgroundColor: Platform.OS === 'web' 
-      ? 'rgba(255, 255, 255, 0.65)' 
+    backgroundColor: Platform.OS === 'web'
+      ? 'rgba(255, 255, 255, 0.65)'
       : 'rgba(255, 255, 255, 0.5)',
     borderRadius: theme.borderRadius.lg,
     borderWidth: 0.5,
@@ -767,6 +787,20 @@ const styles = StyleSheet.create({
   leaderboardButtonText: {
     ...theme.typography.bodyBold,
     color: theme.colors.primary,
+    flex: 1,
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.secondary,
+    gap: theme.spacing.md,
+  },
+  signOutButtonText: {
+    ...theme.typography.bodyBold,
+    color: theme.colors.error,
     flex: 1,
   },
 });

@@ -13,6 +13,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/Button';
 import { theme } from '../theme';
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 
 interface LoginScreenProps {
   navigation: any;
@@ -27,6 +28,7 @@ const { width } = Dimensions.get('window');
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const { signInWithGoogle, loading } = useSupabaseAuth();
 
   useEffect(() => {
     // Smooth element appearance
@@ -45,10 +47,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     ]).start();
   }, []);
 
-  const handleContinue = (provider: 'google' | 'apple' | 'facebook' = 'google') => {
-    // In a real app, authentication would happen here
-    console.log(`Continue with ${provider}`);
-    navigation.navigate('ProfileSetup');
+  const handleContinue = async (provider: 'google' | 'apple' | 'facebook' = 'google') => {
+    if (provider !== 'google') {
+      // TODO: добавить другие провайдеры по мере необходимости
+      return;
+    }
+
+    const token = await signInWithGoogle();
+    if (token) {
+      navigation.navigate('ProfileSetup');
+    }
   };
 
   return (
@@ -95,6 +103,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   <Button
                     title="Continue with Google"
                     onPress={() => handleContinue('google')}
+                    loading={loading}
                     size="large"
                     icon={
                       <Ionicons

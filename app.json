@@ -3,6 +3,7 @@
     "name": "No Fat Community",
     "slug": "nofat-community",
     "version": "1.0.0",
+    "scheme": "nofatcommunity",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

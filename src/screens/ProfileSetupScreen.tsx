@@ -8,12 +8,16 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { InputField } from '../components/InputField';
 import { Button } from '../components/Button';
 import { theme } from '../theme';
+import { createProfile } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface ProfileSetupScreenProps {
   navigation: any;
@@ -26,11 +30,13 @@ interface ProfileSetupScreenProps {
 export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
   navigation,
 }) => {
+  const { user, refreshProfile, signOut } = useAuth();
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [goal, setGoal] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const [errors, setErrors] = useState<{
     height?: string;
@@ -54,26 +60,26 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     if (!value.trim()) {
       return 'Height is required';
     }
-    
+
     // Check format: should be like 5'1 or 5'11
     const heightPattern = /^(\d+)'(\d{1,2})$/;
     const match = value.trim().match(heightPattern);
-    
+
     if (!match) {
       return "Height must be in format 5'1 (feet'inches)";
     }
-    
+
     const feet = parseInt(match[1], 10);
     const inches = parseInt(match[2], 10);
-    
+
     if (feet < 3 || feet > 8) {
       return 'Feet must be between 3 and 8';
     }
-    
+
     if (inches < 0 || inches > 11) {
       return 'Inches must be between 0 and 11';
     }
-    
+
     return undefined;
   };
 
@@ -218,7 +224,7 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     setErrors((prev) => ({ ...prev, [field]: error }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validate all fields
     const heightError = validateHeight(height);
     const weightError = validateWeight(weight);
@@ -246,9 +252,49 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
     }
 
     // All valid, proceed with save
-    // In a real app, data would be saved here
-    // Height can be converted to inches if needed: parse format 5'1 -> (5 * 12) + 1 = 61 inches
-    navigation.navigate('MainTabs');
+    setSaving(true);
+    try {
+      // Convert height from feet'inches to cm
+      const heightPattern = /^(\d+)'(\d{1,2})$/;
+      const match = height.trim().match(heightPattern);
+      if (!match) {
+        throw new Error('Invalid height format');
+      }
+      const feet = parseInt(match[1], 10);
+      const inches = parseInt(match[2], 10);
+      const totalInches = feet * 12 + inches;
+      const heightCm = Math.round(totalInches * 2.54);
+
+      // Determine username from auth data
+      let autoUsername = 'user';
+      if (user?.user_metadata?.name) {
+        autoUsername = user.user_metadata.name;
+      } else if (user?.email) {
+        autoUsername = user.email.split('@')[0];
+      }
+
+      await createProfile({
+        username: autoUsername,
+        height_cm: heightCm,
+        age: parseInt(age, 10),
+        gender,
+        initial_weight_lbs: parseFloat(weight),
+        goal_weight_lbs: parseFloat(goal),
+      });
+
+      // Refresh profile in Auth Context
+      await refreshProfile();
+
+      // Navigate to main app
+      navigation.navigate('MainTabs');
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error?.message || 'Failed to create profile. Please try again.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -281,141 +327,161 @@ export const ProfileSetupScreen: React.FC<ProfileSetupScreenProps> = ({
           keyboardDismissMode="on-drag"
         >
           <Animated.View style={{ opacity: fadeAnim, pointerEvents: 'box-none' as const }}>
-          {/* Subtitle */}
-          <View style={styles.subtitleContainer}>
-            <Text style={styles.subtitle}>
-              Fill in your details to start tracking your progress
-            </Text>
-          </View>
-
-          {/* Gender (Toggle) */}
-          <View style={styles.genderContainer}>
-            <Text style={styles.genderLabel}>Gender</Text>
-            <View style={styles.genderToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.genderButton,
-                  gender === 'male' && styles.genderButtonActive,
-                ]}
-                onPress={() => setGender('male')}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="male"
-                  size={24}
-                  color={gender === 'male' ? '#FFFFFF' : theme.colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.genderText,
-                    gender === 'male' && styles.genderTextActive,
-                  ]}
-                >
-                  Male
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.genderButton,
-                  gender === 'female' && styles.genderButtonActive,
-                ]}
-                onPress={() => setGender('female')}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="female"
-                  size={24}
-                  color={gender === 'female' ? '#FFFFFF' : theme.colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.genderText,
-                    gender === 'female' && styles.genderTextActive,
-                  ]}
-                >
-                  Female
-                </Text>
-              </TouchableOpacity>
+            {/* Subtitle */}
+            <View style={styles.subtitleContainer}>
+              <Text style={styles.subtitle}>
+                Fill in your details to start tracking your progress
+              </Text>
             </View>
-          </View>
 
-          {/* Input fields */}
-          <View style={styles.form}>
-            <InputField
-              label="Height (ft'in)"
-              value={height}
-              onChangeText={handleHeightChange}
-              onFocus={() => {
-                if (errors.height) {
-                  setErrors((prev) => ({ ...prev, height: undefined }));
-                }
-              }}
-              onBlur={() => handleBlur('height')}
-              keyboardType="default"
-              placeholder="5'1"
-              error={errors.height}
+            {/* Gender (Toggle) */}
+            <View style={styles.genderContainer}>
+              <Text style={styles.genderLabel}>Gender</Text>
+              <View style={styles.genderToggle}>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    gender === 'male' && styles.genderButtonActive,
+                  ]}
+                  onPress={() => setGender('male')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="male"
+                    size={24}
+                    color={gender === 'male' ? '#FFFFFF' : theme.colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      gender === 'male' && styles.genderTextActive,
+                    ]}
+                  >
+                    Male
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    gender === 'female' && styles.genderButtonActive,
+                  ]}
+                  onPress={() => setGender('female')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="female"
+                    size={24}
+                    color={gender === 'female' ? '#FFFFFF' : theme.colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      gender === 'female' && styles.genderTextActive,
+                    ]}
+                  >
+                    Female
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Input fields */}
+            <View style={styles.form}>
+              <InputField
+                label="Height (ft'in)"
+                value={height}
+                onChangeText={handleHeightChange}
+                onFocus={() => {
+                  if (errors.height) {
+                    setErrors((prev) => ({ ...prev, height: undefined }));
+                  }
+                }}
+                onBlur={() => handleBlur('height')}
+                keyboardType="default"
+                placeholder="5'1"
+                error={errors.height}
+              />
+
+              <InputField
+                label="Weight (lbs)"
+                value={weight}
+                onChangeText={handleWeightChange}
+                onFocus={() => {
+                  if (errors.weight) {
+                    setErrors((prev) => ({ ...prev, weight: undefined }));
+                  }
+                }}
+                onBlur={() => handleBlur('weight', weight)}
+                keyboardType="decimal-pad"
+                placeholder=""
+                error={errors.weight}
+              />
+
+              <InputField
+                label="Age"
+                value={age}
+                onChangeText={handleAgeChange}
+                onFocus={() => {
+                  if (errors.age) {
+                    setErrors((prev) => ({ ...prev, age: undefined }));
+                  }
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 300);
+                }}
+                onBlur={() => handleBlur('age', age)}
+                keyboardType="numeric"
+                placeholder=""
+                error={errors.age}
+              />
+
+              <InputField
+                label="Goal Weight (lbs)"
+                value={goal}
+                onChangeText={handleGoalChange}
+                onFocus={() => {
+                  if (errors.goal) {
+                    setErrors((prev) => ({ ...prev, goal: undefined }));
+                  }
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 300);
+                }}
+                onBlur={() => handleBlur('goal', goal)}
+                keyboardType="decimal-pad"
+                placeholder=""
+                error={errors.goal}
+                helperText={!errors.goal ? "Target weight you want to achieve" : undefined}
+              />
+            </View>
+
+            {/* CTA button */}
+            <Button
+              title="Save Data"
+              onPress={handleSave}
+              loading={saving}
+              size="large"
+              style={styles.saveButton}
             />
 
-            <InputField
-              label="Weight (lbs)"
-              value={weight}
-              onChangeText={handleWeightChange}
-              onFocus={() => {
-                if (errors.weight) {
-                  setErrors((prev) => ({ ...prev, weight: undefined }));
+            <Button
+              title="Sign out"
+              onPress={async () => {
+                try {
+                  await supabase.auth.signOut();
+                  await signOut();
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }],
+                  });
+                } catch (e) {
+                  console.log('Sign out error', e);
                 }
               }}
-              onBlur={() => handleBlur('weight', weight)}
-              keyboardType="decimal-pad"
-              placeholder=""
-              error={errors.weight}
+              size="medium"
+              style={styles.signOutButton}
+              variant="secondary"
             />
-
-            <InputField
-              label="Age"
-              value={age}
-              onChangeText={handleAgeChange}
-              onFocus={() => {
-                if (errors.age) {
-                  setErrors((prev) => ({ ...prev, age: undefined }));
-                }
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 300);
-              }}
-              onBlur={() => handleBlur('age', age)}
-              keyboardType="numeric"
-              placeholder=""
-              error={errors.age}
-            />
-
-            <InputField
-              label="Goal Weight (lbs)"
-              value={goal}
-              onChangeText={handleGoalChange}
-              onFocus={() => {
-                if (errors.goal) {
-                  setErrors((prev) => ({ ...prev, goal: undefined }));
-                }
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 300);
-              }}
-              onBlur={() => handleBlur('goal', goal)}
-              keyboardType="decimal-pad"
-              placeholder=""
-              error={errors.goal}
-              helperText={!errors.goal ? "Target weight you want to achieve" : undefined}
-            />
-          </View>
-
-          {/* CTA button */}
-          <Button
-            title="Save Data"
-            onPress={handleSave}
-            size="large"
-            style={styles.saveButton}
-          />
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -516,6 +582,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 0,
+  },
+  signOutButton: {
+    marginTop: theme.spacing.md,
   },
 });
 

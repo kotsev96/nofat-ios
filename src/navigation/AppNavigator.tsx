@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, ActivityIndicator, View } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -15,6 +15,7 @@ import { MealPrepInstructionsScreen } from '../screens/MealPrepInstructionsScree
 import { ProductsScreen } from '../screens/ProductsScreen';
 import { TabBar } from '../components/TabBar';
 import { theme } from '../theme';
+import { useAuth } from '../contexts/AuthContext';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -112,6 +113,8 @@ const MainTabNavigator: React.FC = () => {
  * React Navigation 6 Native Stack with custom animations
  */
 export const AppNavigator: React.FC = () => {
+  const { user, profile, loading } = useAuth();
+
   const navigationTheme = {
     ...DefaultTheme,
     colors: {
@@ -120,10 +123,18 @@ export const AppNavigator: React.FC = () => {
     },
   };
 
+  // Show loading spinner while checking auth state
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F2' }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
-        initialRouteName="MainTabs"
         screenOptions={{
           headerShown: false,
           animation: 'fade',
@@ -135,62 +146,71 @@ export const AppNavigator: React.FC = () => {
           fullScreenGestureEnabled: Platform.OS === 'ios',
         }}
       >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen
-          name="ProfileSetup"
-          component={ProfileSetupScreen}
-          options={{
-            animation: 'slide_from_right',
-            gestureEnabled: true,
-            fullScreenGestureEnabled: Platform.OS === 'ios',
-          }}
-        />
-        <Stack.Screen
-          name="MainTabs"
-          component={MainTabNavigator}
-          options={{
-            animation: 'slide_from_right',
-            // Remove contentStyle transparent to ensure correct background
-            gestureEnabled: false, // Disable for main tabs
-          }}
-        />
-        <Stack.Screen
-          name="Leaderboard"
-          component={LeaderboardScreen}
-          options={{
-            animation: 'slide_from_right',
-            gestureEnabled: true,
-            fullScreenGestureEnabled: Platform.OS === 'ios',
-          }}
-        />
-        <Stack.Screen
-          name="UpdateWeight"
-          component={WeightUpdateScreen}
-          options={{
-            animation: 'slide_from_right',
-            gestureEnabled: true,
-            fullScreenGestureEnabled: Platform.OS === 'ios',
-          }}
-        />
-        <Stack.Screen
-          name="MealPrepInstructions"
-          component={MealPrepInstructionsScreen}
-          options={{
-            animation: 'none', // Disable native animation - we use custom translateX animation
-            gestureEnabled: true,
-            fullScreenGestureEnabled: Platform.OS === 'ios',
-          }}
-        />
-        <Stack.Screen
-          name="Products"
-          component={ProductsScreen}
-          options={{
-            animation: 'none', // Disable native animation - we use custom translateX animation
-            headerShown: false,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: Platform.OS === 'ios',
-          }}
-        />
+        {!user ? (
+          // 1. Not authenticated -> Login
+          <Stack.Screen name="Login" component={LoginScreen} />
+        ) : !profile ? (
+          // 2. Authenticated but no profile -> Setup
+          <Stack.Screen
+            name="ProfileSetup"
+            component={ProfileSetupScreen}
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+              fullScreenGestureEnabled: Platform.OS === 'ios',
+            }}
+          />
+        ) : (
+          // 3. Authenticated and has profile -> Main App
+          <>
+            <Stack.Screen
+              name="MainTabs"
+              component={MainTabNavigator}
+              options={{
+                animation: 'slide_from_right',
+                // Remove contentStyle transparent to ensure correct background
+                gestureEnabled: false, // Disable for main tabs
+              }}
+            />
+            <Stack.Screen
+              name="Leaderboard"
+              component={LeaderboardScreen}
+              options={{
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: Platform.OS === 'ios',
+              }}
+            />
+            <Stack.Screen
+              name="UpdateWeight"
+              component={WeightUpdateScreen}
+              options={{
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                fullScreenGestureEnabled: Platform.OS === 'ios',
+              }}
+            />
+            <Stack.Screen
+              name="MealPrepInstructions"
+              component={MealPrepInstructionsScreen}
+              options={{
+                animation: 'none', // Disable native animation - we use custom translateX animation
+                gestureEnabled: true,
+                fullScreenGestureEnabled: Platform.OS === 'ios',
+              }}
+            />
+            <Stack.Screen
+              name="Products"
+              component={ProductsScreen}
+              options={{
+                animation: 'none', // Disable native animation - we use custom translateX animation
+                headerShown: false,
+                gestureEnabled: true,
+                fullScreenGestureEnabled: Platform.OS === 'ios',
+              }}
+            />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
